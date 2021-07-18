@@ -13,15 +13,15 @@ import (
 	"testing"
 )
 
-func printChildren(n *node, prefix string) {
-	fmt.Printf(" %02d %s%s[%d] %v %t %d \r\n", n.priority, prefix, n.path, len(n.children), n.handle, n.wildChild, n.nType)
-	for l := len(n.path); l > 0; l-- {
-		prefix += " "
-	}
-	for _, child := range n.children {
-		printChildren(child, prefix)
-	}
-}
+// func printChildren(n *node, prefix string) {
+// 	fmt.Printf(" %02d %s%s[%d] %v %t %d \r\n", n.priority, prefix, n.path, len(n.children), n.handle, n.wildChild, n.nType)
+// 	for l := len(n.path); l > 0; l-- {
+// 		prefix += " "
+// 	}
+// 	for _, child := range n.children {
+// 		printChildren(child, prefix)
+// 	}
+// }
 
 // Used as a workaround since we can't compare functions or their addresses
 var fakeHandlerValue string
@@ -48,13 +48,14 @@ func checkRequests(t *testing.T, tree *node, requests testRequests) {
 	for _, request := range requests {
 		handler, psp, _ := tree.getValue(request.path, getParams)
 
-		if handler == nil {
+		switch {
+		case handler == nil:
 			if !request.nilHandler {
 				t.Errorf("handle mismatch for route '%s': Expected non-nil handle", request.path)
 			}
-		} else if request.nilHandler {
+		case request.nilHandler:
 			t.Errorf("handle mismatch for route '%s': Expected nil handle", request.path)
-		} else {
+		default:
 			handler(nil, nil, nil)
 			if fakeHandlerValue != request.route {
 				t.Errorf("handle mismatch for route '%s': Wrong handle (%s != %s)", request.path, fakeHandlerValue, request.route)
@@ -121,7 +122,7 @@ func TestTreeAddAndGet(t *testing.T) {
 		tree.addRoute(route, fakeHandler(route))
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 
 	checkRequests(t, tree, testRequests{
 		{"/a", false, "/a", nil},
@@ -163,7 +164,7 @@ func TestTreeWildcard(t *testing.T) {
 		tree.addRoute(route, fakeHandler(route))
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 
 	checkRequests(t, tree, testRequests{
 		{"/", false, "/", nil},
@@ -202,7 +203,8 @@ type testRoute struct {
 func testRoutes(t *testing.T, routes []testRoute) {
 	tree := &node{}
 
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		recv := catchPanic(func() {
 			tree.addRoute(route.path, nil)
 		})
@@ -216,7 +218,7 @@ func testRoutes(t *testing.T, routes []testRoute) {
 		}
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 }
 
 func TestTreeWildcardConflict(t *testing.T) {
@@ -266,7 +268,8 @@ func TestTreeDupliatePath(t *testing.T) {
 		"/search/:query",
 		"/user_:name",
 	}
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		recv := catchPanic(func() {
 			tree.addRoute(route, fakeHandler(route))
 		})
@@ -283,7 +286,7 @@ func TestTreeDupliatePath(t *testing.T) {
 		}
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 
 	checkRequests(t, tree, testRequests{
 		{"/", false, "/", nil},
@@ -303,7 +306,8 @@ func TestEmptyWildcardName(t *testing.T) {
 		"/cmd/:/",
 		"/src/*",
 	}
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		recv := catchPanic(func() {
 			tree.addRoute(route, nil)
 		})
@@ -347,7 +351,8 @@ func TestTreeDoubleWildcard(t *testing.T) {
 		"/:foo*bar",
 	}
 
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		tree := &node{}
 		recv := catchPanic(func() {
 			tree.addRoute(route, nil)
@@ -358,17 +363,6 @@ func TestTreeDoubleWildcard(t *testing.T) {
 		}
 	}
 }
-
-/*func TestTreeDuplicateWildcard(t *testing.T) {
-	tree := &node{}
-
-	routes := [...]string{
-		"/:id/:name/:id",
-	}
-	for _, route := range routes {
-		...
-	}
-}*/
 
 func TestTreeTrailingSlashRedirect(t *testing.T) {
 	tree := &node{}
@@ -398,8 +392,10 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/no/a",
 		"/no/b",
 		"/api/hello/:name",
+		"/vendor/:x/*y",
 	}
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		recv := catchPanic(func() {
 			tree.addRoute(route, fakeHandler(route))
 		})
@@ -408,7 +404,7 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		}
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 
 	tsrRoutes := [...]string{
 		"/hi/",
@@ -425,6 +421,7 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/admin/config/",
 		"/admin/config/permissions/",
 		"/doc/",
+		"/vendor/x",
 	}
 	for _, route := range tsrRoutes {
 		handler, _, tsr := tree.getValue(route, nil)
@@ -513,7 +510,8 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 		longPath,
 	}
 
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		recv := catchPanic(func() {
 			tree.addRoute(route, fakeHandler(route))
 		})
@@ -524,21 +522,23 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 
 	// Check out == in for all registered routes
 	// With fixTrailingSlash = true
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		out, found := tree.findCaseInsensitivePath(route, true)
 		if !found {
 			t.Errorf("Route '%s' not found!", route)
-		} else if string(out) != route {
-			t.Errorf("Wrong result for route '%s': %s", route, string(out))
+		} else if out != route {
+			t.Errorf("Wrong result for route '%s': %s", route, out)
 		}
 	}
 	// With fixTrailingSlash = false
-	for _, route := range routes {
+	for i := range routes {
+		route := routes[i]
 		out, found := tree.findCaseInsensitivePath(route, false)
 		if !found {
 			t.Errorf("Route '%s' not found!", route)
-		} else if string(out) != route {
-			t.Errorf("Wrong result for route '%s': %s", route, string(out))
+		} else if out != route {
+			t.Errorf("Wrong result for route '%s': %s", route, out)
 		}
 	}
 
@@ -608,9 +608,9 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 	// With fixTrailingSlash = true
 	for _, test := range tests {
 		out, found := tree.findCaseInsensitivePath(test.in, true)
-		if found != test.found || (found && (string(out) != test.out)) {
+		if found != test.found || (found && (out != test.out)) {
 			t.Errorf("Wrong result for '%s': got %s, %t; want %s, %t",
-				test.in, string(out), found, test.out, test.found)
+				test.in, out, found, test.out, test.found)
 			return
 		}
 	}
@@ -619,12 +619,12 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 		out, found := tree.findCaseInsensitivePath(test.in, false)
 		if test.slash {
 			if found { // test needs a trailingSlash fix. It must not be found!
-				t.Errorf("Found without fixTrailingSlash: %s; got %s", test.in, string(out))
+				t.Errorf("Found without fixTrailingSlash: %s; got %s", test.in, out)
 			}
 		} else {
-			if found != test.found || (found && (string(out) != test.out)) {
+			if found != test.found || (found && (out != test.out)) {
 				t.Errorf("Wrong result for '%s': got %s, %t; want %s, %t",
-					test.in, string(out), found, test.out, test.found)
+					test.in, out, found, test.out, test.found)
 				return
 			}
 		}
@@ -672,7 +672,9 @@ func TestTreeWildcardConflictEx(t *testing.T) {
 		{"/conooo/xxx", "ooo", `/con:tact`, `:tact`},
 	}
 
-	for _, conflict := range conflicts {
+	for i := range conflicts {
+		conflict := conflicts[i]
+
 		// I have to re-create a 'tree', because the 'tree' will be
 		// in an inconsistent state when the loop recovers from the
 		// panic which threw by 'addRoute' function.
@@ -683,7 +685,8 @@ func TestTreeWildcardConflictEx(t *testing.T) {
 			"/who/foo/hello",
 		}
 
-		for _, route := range routes {
+		for i := range routes {
+			route := routes[i]
 			tree.addRoute(route, fakeHandler(route))
 		}
 

@@ -92,7 +92,6 @@ func (n *node) incrementChildPrio(pos int) int {
 	for ; newPos > 0 && cs[newPos-1].priority < prio; newPos-- {
 		// Swap node positions
 		cs[newPos-1], cs[newPos] = cs[newPos], cs[newPos-1]
-
 	}
 
 	// Build new index char string
@@ -112,7 +111,7 @@ func (n *node) addRoute(path string, handle Handle) {
 	n.priority++
 
 	// Empty tree
-	if len(n.path) == 0 && len(n.indices) == 0 {
+	if n.path == "" && n.indices == "" {
 		n.insertChild(path, fullPath, handle)
 		n.nType = root
 		return
@@ -241,7 +240,8 @@ func (n *node) insertChild(path, fullPath string, handle Handle) {
 				"' conflicts with existing children in path '" + fullPath + "'")
 		}
 
-		if wildcard[0] == ':' { // param
+		// param
+		if wildcard[0] == ':' {
 			if i > 0 {
 				// Insert prefix before the current wildcard
 				n.path = path[:i]
@@ -272,45 +272,45 @@ func (n *node) insertChild(path, fullPath string, handle Handle) {
 			// Otherwise we're done. Insert the handle in the new leaf
 			n.handle = handle
 			return
-
-		} else { // catchAll
-			if i+len(wildcard) != len(path) {
-				panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
-			}
-
-			if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
-				panic("catch-all conflicts with existing handle for the path segment root in path '" + fullPath + "'")
-			}
-
-			// Currently fixed width 1 for '/'
-			i--
-			if path[i] != '/' {
-				panic("no / before catch-all in path '" + fullPath + "'")
-			}
-
-			n.path = path[:i]
-
-			// First node: catchAll node with empty path
-			child := &node{
-				wildChild: true,
-				nType:     catchAll,
-			}
-			n.children = []*node{child}
-			n.indices = string('/')
-			n = child
-			n.priority++
-
-			// Second node: node holding the variable
-			child = &node{
-				path:     path[i:],
-				nType:    catchAll,
-				handle:   handle,
-				priority: 1,
-			}
-			n.children = []*node{child}
-
-			return
 		}
+
+		// catchAll
+		if i+len(wildcard) != len(path) {
+			panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
+		}
+
+		if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
+			panic("catch-all conflicts with existing handle for the path segment root in path '" + fullPath + "'")
+		}
+
+		// Currently fixed width 1 for '/'
+		i--
+		if path[i] != '/' {
+			panic("no / before catch-all in path '" + fullPath + "'")
+		}
+
+		n.path = path[:i]
+
+		// First node: catchAll node with empty path
+		child := &node{
+			wildChild: true,
+			nType:     catchAll,
+		}
+		n.children = []*node{child}
+		n.indices = string('/')
+		n = child
+		n.priority++
+
+		// Second node: node holding the variable
+		child = &node{
+			path:     path[i:],
+			nType:    catchAll,
+			handle:   handle,
+			priority: 1,
+		}
+		n.children = []*node{child}
+
+		return
 	}
 
 	// If no wildcard was found, simply insert the path and handle
@@ -348,7 +348,6 @@ walk: // Outer loop for walking the tree
 					// trailing slash if a leaf exists for that path.
 					tsr = (path == "/" && n.handle != nil)
 					return
-
 				}
 
 				// Handle wildcard child
@@ -394,7 +393,7 @@ walk: // Outer loop for walking the tree
 						// No handle found. Check if a handle for this path + a
 						// trailing slash exists for TSR recommendation
 						n = n.children[0]
-						tsr = (n.path == "/" && n.handle != nil)
+						tsr = (n.path == "/" && n.handle != nil) || (n.path == "" && n.indices == "/")
 					}
 
 					return

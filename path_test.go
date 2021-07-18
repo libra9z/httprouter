@@ -83,6 +83,7 @@ func TestPathCleanMallocs(t *testing.T) {
 	}
 
 	for _, test := range cleanTests {
+		test := test
 		allocs := testing.AllocsPerRun(100, func() { CleanPath(test.result) })
 		if allocs > 0 {
 			t.Errorf("CleanPath(%q): %v allocs, want zero", test.result, allocs)
@@ -119,7 +120,7 @@ func genLongPaths() (testPaths []cleanPathTest) {
 			result: correctPath,
 		})
 	}
-	return
+	return testPaths
 }
 
 func TestPathCleanLong(t *testing.T) {
