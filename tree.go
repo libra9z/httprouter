@@ -52,14 +52,14 @@ func findWildcard(path string) (wilcard string, i int, valid bool) {
 }
 
 func countParams(path string) uint16 {
-	var n uint
+	var n uint16
 	for i := range []byte(path) {
 		switch path[i] {
 		case ':', '*':
 			n++
 		}
 	}
-	return uint16(n)
+	return n
 }
 
 type nodeType uint8
@@ -431,6 +431,11 @@ walk: // Outer loop for walking the tree
 			// wildcard child, there must be a handle for this path with an
 			// additional trailing slash
 			if path == "/" && n.wildChild && n.nType != root {
+				tsr = true
+				return
+			}
+
+			if path == "/" && n.nType == static {
 				tsr = true
 				return
 			}
